@@ -1,4 +1,4 @@
-podTemplate(containers: [
+podTemplate(serviceAccount: "jenkins", containers: [
     containerTemplate(name: 'jnlp',
                       image: 'quay.io/kskels/inbound-agent:4.3-4-jdk11',
                       ttyEnabled: true,
