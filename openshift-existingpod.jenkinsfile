@@ -1,0 +1,26 @@
+node('tools') {
+
+  git branch: 'main', url: 'https://github.com/svalluru/cicd-samples.git'
+
+  container('openshift-client') {
+
+    stage ('Create BuildConfig') {
+      sh "oc apply -n jenkins-ruby-sample -f buildconfig.yaml"
+    }
+
+    stage ('Start Build') {
+      sh "oc start-build -n jenkins-ruby-sample ruby-sample-build --follow"
+    }
+
+    stage ('Create Deployment') {
+      sh "oc apply -n jenkins-ruby-sample -f deployment.yaml"
+      sh "oc rollout -n jenkins-ruby-sample status deploy/ruby-hello --watch"
+    }
+
+    stage ('Cleanup Resources') {
+      sh "oc delete -n jenkins-ruby-sample -f buildconfig.yaml"
+      sh "oc delete -n jenkins-ruby-sample -f deployment.yaml"
+    }
+
+  }
+}

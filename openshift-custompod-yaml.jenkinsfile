@@ -1,0 +1,71 @@
+
+// See more plugin docs at
+// https://plugins.jenkins.io/kubernetes/
+
+// This sample requires a secret
+// oc create secret docker-registry regsecret \
+//  --docker-server=<url> \
+//  --docker-username=<user> \
+//  --docker-password=<pass> \
+//  --docker-email=<mail>
+
+podTemplate(yaml: """\
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      labels:
+        openshift-client-pod: version-v4.9
+    spec:
+      serviceAccountName: jenkins
+      containers:
+
+        # The Kubernetes plugin allocates Jenkins agents in Kubernetes pods.
+        # Within these pods, there is always one special container jnlp that
+        # is running the Jenkins agent.
+        # The default jnlp agent image used can be customized.
+        # From the docs: We do not recommend overriding the jnlp container
+        # except under unusual circumstances.
+        # I have override the image to quay to avoid frequent docker pulls
+        - name: jnlp
+          image: 'quay.io/kskels/inbound-agent:4.3-4-jdk11'
+          args:
+           - \$(JENKINS_SECRET)
+           - \$(JENKINS_NAME)
+
+        # See Red Hat certified software for available containers
+        # https://catalog.redhat.com/software/containers/explore
+        # You may use internal of one of the external images to openshift
+        # registry.redhat.io/openshift4/ose-cli:v4.9
+        - name: openshift-client
+          image: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
+          command:
+          - sleep
+          args:
+           - 99999
+          tty: true
+""".stripIndent()) {
+  node(POD_LABEL) {
+
+    git branch: 'main', url: 'https://github.com/kskels/cicd-samples.git'
+
+    container('openshift-client') {
+
+      stage ('Create BuildConfig') {
+        sh "oc apply -n jenkins-ruby-sample -f buildconfig.yaml"
+      }
+
+      stage ('Start Build') {
+        sh "oc start-build -n jenkins-ruby-sample ruby-sample-build --follow"
+      }
+
+      stage ('Create Deployment') {
+        oc apply -n jenkins-ruby-sample-f deployment.yaml
+      }
+
+      stage ('Cleanup Resources') {
+
+      }
+
+    }
+  }
+}
